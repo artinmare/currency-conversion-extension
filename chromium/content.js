@@ -7,8 +7,9 @@ document.body.appendChild(popup);
 // Function to extract currency code and value from text
 function extractCurrencyData(text) {
   // Pattern to match currency with values (uppercase only)
+  // Matches: NZ$450.00, $50, 100 USD, USD 100, $420 NZD, etc.
   const currencyPattern =
-    /([$€£¥₹₽¢₩₪₦₱₡₨₲₴₵]\s*[\d,]+(?:\.\d{1,2})?|[\d,]+(?:\.\d{1,2})?\s*[A-Z]{3}|[A-Z]{3}\s*[\d,]+(?:\.\d{1,2})?)/g;
+    /([A-Z]{2,3}[$€£¥₹₽¢₩₪₦₱₡₨₲₴₵]\s*[\d,]+(?:\.\d{1,2})?|[$€£¥₹₽¢₩₪₦₱₡₨₲₴₵]\s*[\d,]+(?:\.\d{1,2})?\s*[A-Z]{3}|[$€£¥₹₽¢₩₪₦₱₡₨₲₴₵]\s*[\d,]+(?:\.\d{1,2})?|[\d,]+(?:\.\d{1,2})?\s*[A-Z]{3}|[A-Z]{3}\s*[\d,]+(?:\.\d{1,2})?)/g;
 
   const matches = text.match(currencyPattern);
 
@@ -21,10 +22,45 @@ function extractCurrencyData(text) {
 
 // Function to parse currency code and value
 function parseCurrency(currencyString) {
-  // Match symbol with value: $50
+  // First, check if there's a currency code in the string (takes precedence)
+  const codePattern = /([A-Z]{3})/;
+  const codeMatch = currencyString.match(codePattern);
+
+  // console.log("PT1 :" + codeMatch);
+  if (codeMatch) {
+    // Extract the code
+    const code = codeMatch[1];
+
+    // Extract the value (can be before or after the code)
+    const valuePattern = /([\d,]+(?:\.\d{1,2})?)/;
+    const valueMatch = currencyString.match(valuePattern);
+
+    if (valueMatch) {
+      const value = parseFloat(valueMatch[1].replace(/,/g, ""));
+      return { code: code, value: value };
+    }
+  }
+
+  // If no code found, try code+symbol format: NZ$450.00
+  const codeSymbolPattern =
+    /([A-Z]{2,3})([$€£¥₹₽¢₩₪₦₱₡₨₲₴₵])\s*([\d,]+(?:\.\d{1,2})?)/;
+  const codeSymbolMatch = currencyString.match(codeSymbolPattern);
+
+  // console.log("PT2 :" + codeSymbolMatch);
+  if (codeSymbolMatch) {
+    let code = codeSymbolMatch[1];
+    if (codeSymbolMatch[2] == "$") {
+      code += "D";
+    }
+    const value = parseFloat(codeSymbolMatch[3].replace(/,/g, ""));
+    return { code: code, value: value };
+  }
+
+  // If still no code, try symbol mapping: $50
   const symbolPattern = /([$€£¥₹₽¢₩₪₦₱₡₨₲₴₵])\s*([\d,]+(?:\.\d{1,2})?)/;
   const symbolMatch = currencyString.match(symbolPattern);
 
+  // console.log("PT3 :" + symbolMatch);
   if (symbolMatch) {
     const symbol = symbolMatch[1];
     const value = parseFloat(symbolMatch[2].replace(/,/g, ""));
@@ -50,19 +86,6 @@ function parseCurrency(currencyString) {
     };
 
     return { code: symbolMap[symbol], value: value };
-  }
-
-  // Match value with code: 100 USD or USD 100
-  const codePattern =
-    /([\d,]+(?:\.\d{1,2})?)\s*([A-Z]{3})|([A-Z]{3})\s*([\d,]+(?:\.\d{1,2})?)/;
-  const codeMatch = currencyString.match(codePattern);
-
-  if (codeMatch) {
-    const value = codeMatch[1]
-      ? parseFloat(codeMatch[1].replace(/,/g, ""))
-      : parseFloat(codeMatch[4].replace(/,/g, ""));
-    const code = codeMatch[2] || codeMatch[3];
-    return { code: code, value: value };
   }
 
   return null;
